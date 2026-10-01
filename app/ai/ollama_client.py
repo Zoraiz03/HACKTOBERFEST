@@ -21,7 +21,10 @@ class OllamaModelError(OllamaError):
     """Raised when the requested model is not available."""
 
 
-async def generate(prompt: str, model: str | None = None, timeout: float = 120.0) -> str:
+async def generate(
+    prompt: str, model: str | None = None, timeout: float = 120.0,
+    *, schema: dict | None = None,
+) -> str:
     """
     Send a prompt to Ollama and return the generated text.
 
@@ -45,6 +48,8 @@ async def generate(prompt: str, model: str | None = None, timeout: float = 120.0
         "prompt": prompt,
         "stream": False,
     }
+    if schema is not None:
+        payload["format"] = schema
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:

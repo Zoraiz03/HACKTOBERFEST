@@ -59,3 +59,34 @@ class AssembleResponse(BaseModel):
     """Response from POST /api/assemble — assembled SKILL.md plus validation."""
     skill_md: str = Field(..., description="Assembled SKILL.md content")
     validation: SkillValidationResult = Field(..., description="Spec validation result")
+
+
+# The existing generation response is also the structured draft used in repair.
+GeneratedSkillDraft = SkillGenerateResponse
+
+
+class RepairAttempt(BaseModel):
+    attempt: int
+    errors_before: list[SkillValidationError]
+    before: GeneratedSkillDraft
+    after: GeneratedSkillDraft | None
+    valid_after: bool
+    errors_after: list[SkillValidationError]
+
+
+class GenerateAndRepairResponse(BaseModel):
+    initial_valid: bool
+    repair_attempts: list[RepairAttempt]
+    final_valid: bool
+    final_skill: GeneratedSkillDraft
+    final_validation: SkillValidationResult
+    skill_md: str | None
+
+
+class SkillRunRequest(BaseModel):
+    skill: GeneratedSkillDraft
+    input: str
+
+
+class SkillRunResponse(BaseModel):
+    output: str

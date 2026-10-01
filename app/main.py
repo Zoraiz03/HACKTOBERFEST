@@ -15,9 +15,14 @@ from app.models import (
     SkillGenerateRequest,
     SkillGenerateResponse,
     AssembleResponse,
+    GenerateAndRepairResponse,
+    SkillRunRequest,
+    SkillRunResponse,
 )
 from app.services import generate_skill, assemble_skill_md, validate_skill
 from app.ai.ollama_client import OllamaError
+from app.services.repair import generate_and_repair
+from app.services.runner import run_skill
 
 app = FastAPI(
     title=APP_NAME,
@@ -97,3 +102,25 @@ async def api_assemble_skill(skill: SkillGenerateResponse):
         validation=validation,
     )
 
+
+@app.post("/api/generate-and-repair", response_model=GenerateAndRepairResponse)
+async def api_generate_and_repair(request: SkillGenerateRequest):
+    """Generate, validate, and repair at most twice; return auditable history."""
+    try:
+        return await generate_and_repair(request.workflow)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@app.post("/api/run", response_model=SkillRunResponse)
+async def api_run_skill(request: SkillRunRequest):
+    """Execute a valid skill on sample input, without automatic repair."""
+    try:
+        output = await run_skill(request.skill, request.input)
+        return SkillRunResponse(output=output)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))

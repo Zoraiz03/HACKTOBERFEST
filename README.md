@@ -1,210 +1,159 @@
 # SkillSmith
 
-**Turn any workflow into an AI Agent Skill.**
+**Turn any workflow into a reusable AI Agent Skill.**
 
-> 🏆 Hacktoberfest 2026 — COMSATS University Islamabad, Abbottabad Campus
+## Problem
 
----
+Creating Agent Skills manually requires converting a workflow into structured instructions, following the Agent Skills format, validating the result, and testing whether it actually works. AI can generate instructions, but its output is not always specification-compliant. SkillSmith combines local AI generation with deterministic validation and a built-in test interface.
 
-## Overview
+## Solution
 
-SkillSmith is an open-source AI-powered tool that transforms natural language workflow descriptions into reusable **Agent Skills** following the [Agent Skills Open Standard](https://github.com/agent-skills).
+```text
+Describe Workflow
+        ↓
+Qwen2.5 3B (local via Ollama)
+        ↓
+Structured Skill Draft
+        ↓
+Deterministic Python Validator
+        ↓
+Invalid? → AI Repair using exact validation errors
+        ↓              ↓
+        ← Deterministic Re-validation (maximum 2 attempts)
+        ↓ valid
+SKILL.md Assembly
+        ↓
+Test Skill
+        ↓
+Download SKILL.md
+```
 
-Describe what you want an AI agent to do, and SkillSmith generates a complete, validated, ready-to-use skill package.
+**AI generates, proposes repairs, and executes instructions. Python enforces the schema, validates the draft, decides whether repair is necessary, and assembles `SKILL.md`. The AI never decides whether its own output is valid.**
 
-## Current Development Status
+If repair fails after two attempts, SkillSmith returns validation errors instead of an assembled skill. Invalid skills cannot be executed.
 
-> **Core pipeline operational:**
->
-> ✅ Local AI generation (Ollama + qwen2.5:3b)  
-> ✅ Structured skill draft via AI  
-> ✅ Deterministic SKILL.md assembly  
-> ✅ Agent Skills Open Standard validation  
-> ⬜ AI-powered repair loop  
-> ⬜ Full UI  
-> ⬜ ZIP export
+## Features
+
+- Natural-language workflow → structured Agent Skill using local open-weight AI.
+- Schema-constrained generation through Ollama and Pydantic.
+- Deterministic validation and AI-assisted repair, with a maximum of two attempts.
+- Visible validation status and before/after repair history.
+- Deterministic `SKILL.md` assembly, copying, and client-side download.
+- Interactive skill testing with sample input and copyable results.
+- A responsive single-page interface; no frontend build tools.
+- No cloud AI API or paid API key required. With the default local configuration, inputs stay on your machine; inference can run offline after dependencies and model weights are downloaded.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Backend | Python 3, FastAPI, Uvicorn |
-| Frontend | HTML, Vanilla JavaScript, CSS |
-| AI | Ollama (local), qwen2.5:3b |
-| HTTP Client | httpx |
-| YAML | PyYAML |
-| Config | python-dotenv |
+| --- | --- |
+| Backend | Python, FastAPI, Pydantic, PyYAML, httpx |
+| AI | Ollama, Qwen2.5 3B |
+| Frontend | HTML, CSS, vanilla JavaScript |
 | Testing | pytest |
 
-## Local Setup
+## Run Locally
 
-### Prerequisites
-
-- Python 3.9+
-- [Ollama](https://ollama.com/) installed and running
-- qwen2.5:3b model pulled
-
-### Installation
+Requirements: **Python 3.10+** and [Ollama](https://ollama.com/download). Final verification used Python 3.14 on macOS.
 
 ```bash
-# Clone the repository
 git clone https://github.com/Zoraiz03/HACKTOBERFEST.git
 cd HACKTOBERFEST
-
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create environment file
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-## Ollama Setup
+On Windows, activate with `.venv\Scripts\activate` instead. Install Ollama from the official link above, then start it if it is not already running:
 
 ```bash
-# Install Ollama (macOS)
-brew install ollama
+ollama serve
+```
 
-# Start the server
-brew services start ollama
+Keep Ollama running. In another terminal, download the model:
 
-# Pull the model
+```bash
 ollama pull qwen2.5:3b
 ```
 
-## Running the Hello-World Test
+The supplied `.env.example` contains:
 
-Verify that the Python → Ollama → AI model pipeline works:
-
-```bash
-python scripts/ollama_hello.py
+```dotenv
+OLLAMA_BASE_URL=http://localhost:11434
+MODEL_NAME=qwen2.5:3b
 ```
 
-Expected output:
-
-```
-============================================================
-SkillSmith — Ollama Hello-World Test
-============================================================
-  Ollama URL : http://localhost:11434
-  Model      : qwen2.5:3b
-============================================================
-
-Prompt: Reply with exactly: SkillSmith AI connection successful
-
-Waiting for model response...
-
-Response: SkillSmith AI connection successful
-
-✅  Ollama connection verified successfully!
-```
-
-## Running the FastAPI Server
+From the project directory, with the virtual environment active:
 
 ```bash
 python run.py
 ```
 
-The server starts at [http://localhost:8000](http://localhost:8000).
+Open **http://localhost:8000**. Health check: http://localhost:8000/health. API documentation: http://localhost:8000/docs.
 
-Health check: [http://localhost:8000/health](http://localhost:8000/health)
+The development entry point binds to `0.0.0.0:8000`. For loopback-only access, use `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` instead.
 
-## Running Tests
+## Demo Example
+
+Click **Meeting Notes Example**, or enter this workflow:
+
+```text
+Read meeting notes and extract decisions, action items, owners, and deadlines.
+```
+
+Click **Generate Agent Skill** and review the validation status and generated `SKILL.md`. Paste this sample input into **Test your skill**:
+
+```text
+Product planning meeting:
+Sarah will finish the landing page by Friday.
+Ali will fix the login bug by tomorrow.
+The team decided to launch the beta next Monday.
+```
+
+Click **Run Skill**. The result should identify Sarah's landing-page task due Friday, Ali's login-bug task due tomorrow, and the beta-launch decision for next Monday. Exact formatting varies. Click **Download SKILL.md** to save the generated file.
+
+## Reliability Example
+
+```text
+meeting_action_extractor
+        ↓
+❌ Deterministic validation: invalid_format
+        ↓
+AI Repair
+        ↓
+meeting-action-extractor
+        ↓
+✅ Deterministic validation passed
+```
+
+Validation is code-based: the model receives exact errors and proposes corrections, which Python checks again. The implemented rules cover name format and length, description presence and length, and nonblank instructions; directory-name matching is checked when a directory is supplied. Repair history stores validation errors and structured before/after drafts, not model reasoning.
+
+These checks improve structural reliability. They do not guarantee that generated instructions or execution results are semantically correct; test the skill with representative input.
+
+## Testing
 
 ```bash
-pytest tests/ -v
+python -m pytest tests/ -q
 ```
 
-## How AI Is Used
+**42 tests passing** in final verification. Tests cover assembly, validation, structured-output requests, bounded repair, API contracts, and skill execution, with the AI boundary mocked. The complete generation → validation → execution → download flow has also been verified with local Qwen through the browser.
 
-SkillSmith uses a **local open-weight AI model** as the core of its pipeline:
+Optional live generation/repair verification:
 
-```
-Workflow description (natural language)
-        ↓
-Local AI model (qwen2.5:3b via Ollama)
-        ↓
-Structured skill draft (JSON)
-        ↓
-Deterministic SKILL.md assembler (Python — no AI)
-        ↓
-Agent Skills spec validator (Python — no AI)
-        ↓
-Validated SKILL.md output
+```bash
+python -m scripts.verify_step4
 ```
 
-**Key design decision:** The AI generates structured data only. SKILL.md formatting and spec validation are handled deterministically in Python, ensuring reliable, spec-compliant output.
+This command requires local Ollama and `qwen2.5:3b`.
 
-## API Endpoints
+## Open Source / Model
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/api/generate` | Generate a structured skill draft from a workflow |
-| `POST` | `/api/assemble` | Assemble SKILL.md and validate against Agent Skills spec |
+SkillSmith application code is licensed under the [MIT License](LICENSE).
 
-### Validation
+The exact configured Ollama identifier is [`qwen2.5:3b`](https://ollama.com/library/qwen2.5:3b). The official [`Qwen/Qwen2.5-3B-Instruct` model card](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct) lists **`qwen-research`**. Its [Qwen Research License Agreement](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE) permits non-commercial research/evaluation use and requires a separate license for commercial use. The application's MIT license does not replace the model's terms. Model weights are downloaded separately and are not included in this repository.
 
-The validator checks skills against the Agent Skills Open Standard MVP rules:
+## Team
 
-- **Name:** 1–64 chars, lowercase `a-z`, digits `0-9`, hyphens only. No leading/trailing/consecutive hyphens.
-- **Description:** 1–1024 chars, non-empty.
-- **Instructions:** Non-empty body content.
-- **Directory match:** Skill name must match parent directory name (when applicable).
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
-| `MODEL_NAME` | Ollama model to use | `qwen2.5:3b` |
-
-## Project Structure
-
-```
-skillsmith/
-├── app/
-│   ├── main.py                # FastAPI application & endpoints
-│   ├── core/
-│   │   └── config.py          # Centralized configuration
-│   ├── ai/
-│   │   └── ollama_client.py   # Ollama HTTP client (httpx)
-│   ├── services/
-│   │   ├── generator.py       # AI skill generation + prompt
-│   │   ├── assembler.py       # Deterministic SKILL.md builder
-│   │   └── validator.py       # Agent Skills spec validator
-│   ├── models/                # Pydantic data models
-│   ├── templates/             # HTML templates
-│   └── static/                # CSS & JS assets
-├── scripts/
-│   └── ollama_hello.py        # AI connection test
-├── tests/
-│   ├── test_validator.py      # 13 validation test cases
-│   └── test_assembler.py      # 7 assembler output tests
-├── generated_skills/          # Output directory
-├── .env.example
-├── requirements.txt
-├── run.py
-└── README.md
-```
-
-## AI Model Information
-
-| Model | Provider | Parameters | License |
-|-------|----------|-----------|---------|
-| [qwen2.5:3b](https://ollama.com/library/qwen2.5:3b) | Alibaba / Qwen Team | 3B | [Apache 2.0](https://huggingface.co/Qwen/Qwen2.5-3B/blob/main/LICENSE) |
-
-The model runs **locally** via Ollama. No data is sent to external APIs.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgements
-
-- [Ollama](https://ollama.com/) — Local AI model serving
-- [Qwen2.5](https://github.com/QwenLM/Qwen2.5) — Open-weight language model by Alibaba
-- [FastAPI](https://fastapi.tiangolo.com/) — Modern Python web framework
+- [Zoraiz Khan](https://github.com/Zoraiz03)
+- [NaimaImtiaz23](https://github.com/NaimaImtiaz23)

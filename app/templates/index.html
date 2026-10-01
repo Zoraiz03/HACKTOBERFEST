@@ -1,14 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkillSmith</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkillSmith — Local Agent Skills</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script src="/static/js/app.js" defer></script>
 </head>
 <body>
-    <h1>SkillSmith</h1>
-    <p>Turn any workflow into an AI Agent Skill.</p>
-    <script src="/static/js/app.js"></script>
+  <main class="shell">
+    <header class="hero">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">S<span>›</span></span> SkillSmith <span class="badge"><span class="dot"></span> Local AI • Qwen2.5 3B</span></div>
+      <p class="eyebrow">YOUR WORKFLOW. A REUSABLE SKILL.</p>
+      <h1>Turn any workflow into<br>an <span>AI Agent Skill.</span></h1>
+      <p class="subtitle">Generate, validate, repair, and test reusable Agent Skills<br class="desktop-break"> entirely on your machine.</p>
+    </header>
+
+    <section class="card" aria-labelledby="create-title">
+      <div class="section-heading"><div><span class="step">01</span><h2 id="create-title">Create your skill</h2></div><span class="muted small">Start with plain language</span></div>
+      <form id="generate-form">
+        <label for="workflow">Describe your workflow</label>
+        <textarea id="workflow" rows="4" minlength="10" maxlength="2000" required placeholder="Describe the workflow you want to turn into an Agent Skill..."></textarea>
+        <div class="actions"><button id="meeting-example" class="button quiet" type="button">↗ Meeting Notes Example</button><button id="generate" class="button primary" type="submit">Generate Agent Skill <span aria-hidden="true">→</span></button></div>
+        <p id="generation-status" class="status" role="status" hidden></p>
+        <p id="generation-error" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section id="pipeline-section" class="card" aria-labelledby="pipeline-title" hidden>
+      <div class="section-heading"><div><span class="step">02</span><h2 id="pipeline-title">Pipeline status</h2></div><span class="muted small">Verified by Python</span></div>
+      <div id="pipeline" class="pipeline" aria-live="polite"></div>
+      <div id="repair-history"></div>
+    </section>
+
+    <section id="skill-section" class="card" aria-labelledby="skill-title" hidden>
+      <div class="section-heading"><div><span class="step">03</span><h2 id="skill-title">Generated skill</h2></div><span class="badge success">✓ Ready to use</span></div>
+      <h3 id="skill-name" class="skill-name"></h3>
+      <p id="skill-description" class="muted description"></p>
+      <div class="code-panel"><div class="panel-toolbar"><span><span class="file-icon" aria-hidden="true">▤</span> SKILL.md</span><button id="copy-skill" class="button compact" type="button">Copy SKILL.md</button></div><pre><code id="skill-md"></code></pre></div>
+    </section>
+
+    <section id="test-section" class="card" aria-labelledby="test-title" hidden>
+      <div class="section-heading"><div><span class="step">04</span><h2 id="test-title">Test your skill</h2></div><span class="muted small">See it in action</span></div>
+      <form id="run-form">
+        <label for="sample-input">Sample input</label>
+        <textarea id="sample-input" rows="5" required placeholder="Paste sample input to test this skill..."></textarea>
+        <div class="actions"><button id="generated-example" class="button quiet" type="button">↗ Use Generated Example</button><button id="run" class="button primary" type="submit">Run Skill <span aria-hidden="true">→</span></button></div>
+        <p id="run-status" class="status" role="status" hidden></p>
+        <p id="run-error" class="error" role="alert" hidden></p>
+      </form>
+      <div id="result-section" class="result" hidden><div class="panel-toolbar"><h3>Skill Output</h3><button id="copy-output" class="button compact" type="button">Copy Output</button></div><pre id="output"></pre></div>
+    </section>
+    <p id="copy-status" class="copy-status" role="status" hidden></p>
+    <footer><span class="dot"></span> Runs locally. Built for workflows that repeat.</footer>
+  </main>
 </body>
 </html>
