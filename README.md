@@ -14,11 +14,15 @@ Describe what you want an AI agent to do, and SkillSmith generates a complete, v
 
 ## Current Development Status
 
-> ⚠️ **This project is currently in the initial setup stage.**
+> **Core pipeline operational:**
 >
-> The project structure, environment configuration, and Ollama AI connection have been established.
->
-> Skill generation, validation, and export are **not yet implemented**.
+> ✅ Local AI generation (Ollama + qwen2.5:3b)  
+> ✅ Structured skill draft via AI  
+> ✅ Deterministic SKILL.md assembly  
+> ✅ Agent Skills Open Standard validation  
+> ⬜ AI-powered repair loop  
+> ⬜ Full UI  
+> ⬜ ZIP export
 
 ## Tech Stack
 
@@ -28,7 +32,9 @@ Describe what you want an AI agent to do, and SkillSmith generates a complete, v
 | Frontend | HTML, Vanilla JavaScript, CSS |
 | AI | Ollama (local), qwen2.5:3b |
 | HTTP Client | httpx |
+| YAML | PyYAML |
 | Config | python-dotenv |
+| Testing | pytest |
 
 ## Local Setup
 
@@ -106,6 +112,49 @@ The server starts at [http://localhost:8000](http://localhost:8000).
 
 Health check: [http://localhost:8000/health](http://localhost:8000/health)
 
+## Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+## How AI Is Used
+
+SkillSmith uses a **local open-weight AI model** as the core of its pipeline:
+
+```
+Workflow description (natural language)
+        ↓
+Local AI model (qwen2.5:3b via Ollama)
+        ↓
+Structured skill draft (JSON)
+        ↓
+Deterministic SKILL.md assembler (Python — no AI)
+        ↓
+Agent Skills spec validator (Python — no AI)
+        ↓
+Validated SKILL.md output
+```
+
+**Key design decision:** The AI generates structured data only. SKILL.md formatting and spec validation are handled deterministically in Python, ensuring reliable, spec-compliant output.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/generate` | Generate a structured skill draft from a workflow |
+| `POST` | `/api/assemble` | Assemble SKILL.md and validate against Agent Skills spec |
+
+### Validation
+
+The validator checks skills against the Agent Skills Open Standard MVP rules:
+
+- **Name:** 1–64 chars, lowercase `a-z`, digits `0-9`, hyphens only. No leading/trailing/consecutive hyphens.
+- **Description:** 1–1024 chars, non-empty.
+- **Instructions:** Non-empty body content.
+- **Directory match:** Skill name must match parent directory name (when applicable).
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -118,22 +167,27 @@ Health check: [http://localhost:8000/health](http://localhost:8000/health)
 ```
 skillsmith/
 ├── app/
-│   ├── main.py              # FastAPI application
+│   ├── main.py                # FastAPI application & endpoints
 │   ├── core/
-│   │   └── config.py        # Centralized configuration
+│   │   └── config.py          # Centralized configuration
 │   ├── ai/
-│   │   └── ollama_client.py # Ollama HTTP client
-│   ├── services/            # Business logic (coming soon)
-│   ├── models/              # Data models (coming soon)
-│   ├── templates/           # HTML templates
-│   └── static/              # CSS & JS assets
+│   │   └── ollama_client.py   # Ollama HTTP client (httpx)
+│   ├── services/
+│   │   ├── generator.py       # AI skill generation + prompt
+│   │   ├── assembler.py       # Deterministic SKILL.md builder
+│   │   └── validator.py       # Agent Skills spec validator
+│   ├── models/                # Pydantic data models
+│   ├── templates/             # HTML templates
+│   └── static/                # CSS & JS assets
 ├── scripts/
-│   └── ollama_hello.py      # AI connection test
-├── tests/                   # Test suite
-├── generated_skills/        # Output directory for generated skills
-├── .env.example             # Environment variable template
-├── requirements.txt         # Python dependencies
-├── run.py                   # Application entry point
+│   └── ollama_hello.py        # AI connection test
+├── tests/
+│   ├── test_validator.py      # 13 validation test cases
+│   └── test_assembler.py      # 7 assembler output tests
+├── generated_skills/          # Output directory
+├── .env.example
+├── requirements.txt
+├── run.py
 └── README.md
 ```
 

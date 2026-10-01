@@ -4,14 +4,19 @@ SkillSmith — FastAPI Application
 Endpoints:
   GET  /health        — Health check
   POST /api/generate  — Generate a structured skill from a workflow description
+  POST /api/assemble  — Assemble SKILL.md and validate against Agent Skills spec
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.config import APP_NAME, APP_VERSION, APP_DESCRIPTION
-from app.models import SkillGenerateRequest, SkillGenerateResponse
-from app.services import generate_skill
+from app.models import (
+    SkillGenerateRequest,
+    SkillGenerateResponse,
+    AssembleResponse,
+)
+from app.services import generate_skill, assemble_skill_md, validate_skill
 from app.ai.ollama_client import OllamaError
 
 app = FastAPI(
@@ -61,4 +66,34 @@ async def api_generate_skill(request: SkillGenerateRequest):
         raise HTTPException(status_code=422, detail=str(e))
     except OllamaError as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Skill assembly + validation
+# ---------------------------------------------------------------------------
+@app.post("/api/assemble", response_model=AssembleResponse)
+async def api_assemble_skill(skill: SkillGenerateResponse):
+    """
+    Assemble a SKILL.md from a structured skill draft and validate it
+    against the Agent Skills Open Standard.
+
+    The SKILL.md is built deterministically in Python — the AI model
+    never writes raw YAML or Markdown.
+
+    Returns the assembled SKILL.md content and validation result.
+    """
+    # Assemble SKILL.md deterministically
+    skill_md = assemble_skill_md(skill)
+
+    # Validate against Agent Skills spec (pure Python, no AI)
+    validation = validate_skill(
+        name=skill.name,
+        description=skill.description,
+        instructions=skill.instructions,
+    )
+
+    return AssembleResponse(
+        skill_md=skill_md,
+        validation=validation,
+    )
 
