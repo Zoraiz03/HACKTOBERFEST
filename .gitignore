@@ -47,3 +47,7 @@ temp/
 htmlcov/
 .pytest_cache/
 .tox/
+
+# Vercel
+.vercel
+

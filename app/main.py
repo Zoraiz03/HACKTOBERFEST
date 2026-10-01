@@ -7,6 +7,7 @@ Endpoints:
   POST /api/assemble  — Assemble SKILL.md and validate against Agent Skills spec
 """
 
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -24,6 +25,10 @@ from app.ai.ollama_client import OllamaError
 from app.services.repair import generate_and_repair
 from app.services.runner import run_skill
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATE_FILE = BASE_DIR / "templates" / "index.html"
+
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
@@ -33,13 +38,13 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # Static files & frontend
 # ---------------------------------------------------------------------------
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/", include_in_schema=False)
 async def serve_frontend():
     """Serve the placeholder frontend page."""
-    return FileResponse("app/templates/index.html")
+    return FileResponse(str(TEMPLATE_FILE))
 
 
 # ---------------------------------------------------------------------------
