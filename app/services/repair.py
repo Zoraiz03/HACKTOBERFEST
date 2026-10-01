@@ -4,7 +4,7 @@ import json
 
 from pydantic import ValidationError
 
-from app.ai.ollama_client import generate
+from app.ai import generate
 from app.models import (
     GeneratedSkillDraft, GenerateAndRepairResponse, RepairAttempt,
     SkillValidationError, SkillValidationResult,

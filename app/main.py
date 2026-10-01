@@ -21,7 +21,7 @@ from app.models import (
     SkillRunResponse,
 )
 from app.services import generate_skill, assemble_skill_md, validate_skill
-from app.ai.ollama_client import OllamaError
+from app.ai import OllamaError, AIError
 from app.services.repair import generate_and_repair
 from app.services.runner import run_skill
 
@@ -74,7 +74,7 @@ async def api_generate_skill(request: SkillGenerateRequest):
         return skill
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except OllamaError as e:
+    except (OllamaError, AIError) as e:
         raise HTTPException(status_code=503, detail=str(e))
 
 
@@ -115,7 +115,7 @@ async def api_generate_and_repair(request: SkillGenerateRequest):
         return await generate_and_repair(request.workflow)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except OllamaError as exc:
+    except (OllamaError, AIError) as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
 
@@ -127,5 +127,5 @@ async def api_run_skill(request: SkillRunRequest):
         return SkillRunResponse(output=output)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except OllamaError as exc:
+    except (OllamaError, AIError) as exc:
         raise HTTPException(status_code=503, detail=str(exc))

@@ -1,6 +1,6 @@
-"""Execute a deterministically validated skill using the existing Ollama client."""
+"""Execute a deterministically validated skill using the AI provider."""
 
-from app.ai.ollama_client import generate
+from app.ai import generate
 from app.models import GeneratedSkillDraft
 from app.services.validator import validate_skill
 

@@ -7,17 +7,18 @@ via its HTTP API. Uses httpx instead of a heavyweight SDK.
 
 import httpx
 from app.core.config import OLLAMA_BASE_URL, MODEL_NAME
+from app.ai.exceptions import AIError, AIConnectionError, AIModelError
 
 
-class OllamaError(Exception):
+class OllamaError(AIError):
     """Base exception for Ollama-related errors."""
 
 
-class OllamaConnectionError(OllamaError):
+class OllamaConnectionError(OllamaError, AIConnectionError):
     """Raised when the Ollama server is unreachable."""
 
 
-class OllamaModelError(OllamaError):
+class OllamaModelError(OllamaError, AIModelError):
     """Raised when the requested model is not available."""
 
 

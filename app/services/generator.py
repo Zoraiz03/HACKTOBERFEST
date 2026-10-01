@@ -9,7 +9,7 @@ AI prompting and JSON parsing logic are isolated here so judges can inspect them
 
 from pydantic import ValidationError
 
-from app.ai.ollama_client import generate
+from app.ai import generate
 from app.models import SkillGenerateResponse
 
 # ---------------------------------------------------------------------------
