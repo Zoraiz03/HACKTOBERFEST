@@ -1,0 +1,1 @@
+// SkillSmith — App JS (placeholder)

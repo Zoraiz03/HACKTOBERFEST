@@ -1,0 +1,1 @@
+# SkillSmith core package
