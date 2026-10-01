@@ -147,11 +147,16 @@ python -m scripts.verify_step4
 
 This command requires local Ollama and `qwen2.5:3b`.
 
-## Open Source / Model
+## Licenses
 
-SkillSmith application code is licensed under the [MIT License](LICENSE).
+### Application License
+SkillSmith application code is open-source and licensed under the [MIT License](LICENSE).
 
-The exact configured Ollama identifier is [`qwen2.5:3b`](https://ollama.com/library/qwen2.5:3b). The official [`Qwen/Qwen2.5-3B-Instruct` model card](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct) lists **`qwen-research`**. Its [Qwen Research License Agreement](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE) permits non-commercial research/evaluation use and requires a separate license for commercial use. The application's MIT license does not replace the model's terms. Model weights are downloaded separately and are not included in this repository.
+### Model License (Qwen 2.5 3B)
+- **Model Identifier**: [`qwen2.5:3b`](https://ollama.com/library/qwen2.5:3b) / [`Qwen/Qwen2.5-3B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
+- **Model License**: [Qwen Research License Agreement](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE) (Release Date: September 19, 2024)
+- **Terms Summary**: The Qwen Research License Agreement permits non-commercial research, academic, and evaluation use. Commercial use beyond the free tier requires an agreement with Alibaba Cloud / Qwen team.
+- **Notice**: Model weights are downloaded directly to your local machine via Ollama and are governed by the Qwen Research License Agreement; the application's MIT License applies strictly to SkillSmith source code and does not supersede or alter third-party model licensing.
 
 ## Team
 
