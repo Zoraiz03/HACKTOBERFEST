@@ -4,7 +4,8 @@ SkillSmith — Pydantic Models
 Data models for skill generation, assembly, and validation.
 """
 
-from pydantic import BaseModel, Field
+import json
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -15,6 +16,16 @@ class SkillExample(BaseModel):
     """A single input/output example demonstrating the skill."""
     input: str = Field(..., description="Example user input for the skill")
     output: str = Field(..., description="Example expected output from the skill")
+
+    @field_validator("input", "output", mode="before")
+    @classmethod
+    def coerce_example_field(cls, v):
+        """Allow models returning structured dict/list examples to serialize cleanly."""
+        if isinstance(v, (dict, list)):
+            return json.dumps(v, indent=2)
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
 
 
 class SkillGenerateRequest(BaseModel):
@@ -33,6 +44,18 @@ class SkillGenerateResponse(BaseModel):
     description: str = Field(..., description="One-line description of what the skill does")
     instructions: str = Field(..., description="Step-by-step instructions for an AI agent")
     example: SkillExample = Field(..., description="One concrete input/output example")
+
+    @field_validator("instructions", mode="before")
+    @classmethod
+    def coerce_instructions(cls, v):
+        """Allow models returning instructions as list of steps or dict to serialize cleanly."""
+        if isinstance(v, list):
+            return "\n".join(str(step) for step in v)
+        if isinstance(v, dict):
+            return json.dumps(v, indent=2)
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
 
 
 # ---------------------------------------------------------------------------

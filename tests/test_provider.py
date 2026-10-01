@@ -255,3 +255,28 @@ def test_parse_skill_draft_malformed_and_schema_violations():
     with pytest.raises(ValidationError):
         parse_skill_draft('{"name": "missing-fields-only"}')
 
+
+def test_parse_skill_draft_structured_example_output():
+    """Verify example.output provided as a dictionary/object or list is preserved and converted to string."""
+    from app.services.generator import parse_skill_draft
+
+    payload = json.dumps({
+        "name": "meeting-extractor",
+        "description": "Extract decisions and action items from meeting notes.",
+        "instructions": "1. Read notes.\n2. Extract items.",
+        "example": {
+            "input": {"raw_notes": "Alice ships Friday"},
+            "output": {
+                "decisions": ["Ship on Friday"],
+                "action_items": [{"task": "Ship", "owner": "Alice", "deadline": "Friday"}]
+            }
+        }
+    })
+    draft = parse_skill_draft(payload)
+    assert draft.name == "meeting-extractor"
+    assert isinstance(draft.example.output, str)
+    assert isinstance(draft.example.input, str)
+    assert "Ship on Friday" in draft.example.output
+    assert "Alice ships Friday" in draft.example.input
+
+

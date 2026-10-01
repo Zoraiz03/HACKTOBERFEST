@@ -85,9 +85,13 @@ def parse_skill_draft(text: str) -> SkillGenerateResponse:
         if isinstance(data.get("example"), dict):
             ex_obj = data["example"]
             if "input" not in ex_obj and "user_input" in ex_obj:
-                ex_obj["input"] = str(ex_obj["user_input"])
+                ex_obj["input"] = ex_obj["user_input"]
             if "output" not in ex_obj and "expected_output" in ex_obj:
-                ex_obj["output"] = str(ex_obj["expected_output"])
+                ex_obj["output"] = ex_obj["expected_output"]
+            if "input" in ex_obj and isinstance(ex_obj["input"], (dict, list)):
+                ex_obj["input"] = json.dumps(ex_obj["input"], indent=2)
+            if "output" in ex_obj and isinstance(ex_obj["output"], (dict, list)):
+                ex_obj["output"] = json.dumps(ex_obj["output"], indent=2)
 
     return SkillGenerateResponse.model_validate(data)
 
