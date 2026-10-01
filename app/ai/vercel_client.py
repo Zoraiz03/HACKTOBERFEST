@@ -3,9 +3,16 @@ SkillSmith — Vercel AI Gateway Client
 
 Async client for communicating with Vercel AI Gateway via its
 OpenAI-compatible HTTP API (/chat/completions). Uses httpx.
+Includes robust extraction for hosted models (reasoning tags, code fences,
+varied payload structures).
 """
 
+import json
+import logging
+import re
+
 import httpx
+
 from app.core import config
 from app.ai.exceptions import (
     AIError,
@@ -14,6 +21,8 @@ from app.ai.exceptions import (
     AIModelError,
     AITimeoutError,
 )
+
+logger = logging.getLogger("skillsmith.ai.vercel")
 
 
 class VercelAIError(AIError):
@@ -37,17 +46,87 @@ class VercelAITimeoutError(VercelAIError, AITimeoutError):
 
 
 def _clean_markdown_fences(content: str) -> str:
-    """Strip optional markdown code fences if returned by the model."""
-    text = content.strip()
+    """Strip optional markdown code fences and reasoning blocks."""
+    text = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
     if text.startswith("```json"):
         text = text[7:]
-        if text.endswith("```"):
-            text = text[:-3]
     elif text.startswith("```"):
         text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
+    if text.endswith("```"):
+        text = text[:-3]
     return text.strip()
+
+
+def _extract_json_content(content: str) -> str:
+    """
+    Safely extract JSON object from model response.
+    Handles:
+    - <think>...</think> reasoning blocks
+    - ```json ... ``` code fences
+    - Explanatory prose before and after JSON
+    - Leading/trailing whitespace
+    """
+    if not content:
+        return ""
+
+    text = content.strip()
+
+    # 1. Remove <think>...</think> reasoning blocks (e.g. Qwen 3 reasoning)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+    # 2. Check for fenced code block: ```json ... ``` or ``` ... ```
+    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
+    if fence_match:
+        fenced_candidate = fence_match.group(1).strip()
+        try:
+            json.loads(fenced_candidate)
+            return fenced_candidate
+        except Exception:
+            pass
+
+    # 3. If direct text is valid JSON, return it
+    try:
+        json.loads(text)
+        return text
+    except Exception:
+        pass
+
+    # 4. Extract outer-most { ... }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = text[start : end + 1].strip()
+        try:
+            json.loads(candidate)
+            return candidate
+        except Exception:
+            return candidate
+
+    return text
+
+
+def _extract_message_text(choice: dict) -> str:
+    """Safely extract text content from choice dict across OpenAI-compatible variants."""
+    message = choice.get("message", {})
+    raw = message.get("content")
+
+    # If content is empty/None, check for reasoning_content or choice-level text
+    if raw is None:
+        raw = message.get("reasoning_content") or choice.get("text", "")
+
+    # If content is returned as a list of content blocks (e.g. [{"type": "text", "text": "..."}])
+    if isinstance(raw, list):
+        parts = []
+        for part in raw:
+            if isinstance(part, dict):
+                parts.append(part.get("text", ""))
+            else:
+                parts.append(str(part))
+        raw = "".join(parts)
+    elif not isinstance(raw, str):
+        raw = str(raw or "")
+
+    return raw
 
 
 async def generate(
@@ -96,6 +175,8 @@ async def generate(
     if schema is not None:
         payload["response_format"] = {"type": "json_object"}
 
+    logger.info("Calling Vercel AI Gateway model: %s (structured: %s)", model, schema is not None)
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(url, headers=headers, json=payload)
@@ -125,10 +206,17 @@ async def generate(
 
     try:
         data = response.json()
-        raw_text = data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        raw_text = _extract_message_text(choice)
     except (KeyError, IndexError, ValueError) as exc:
         raise VercelAIError(
-            f"Malformed response from Vercel AI Gateway: {response.text}"
+            f"Malformed response structure from Vercel AI Gateway: {response.text}"
         ) from exc
 
-    return _clean_markdown_fences(raw_text or "")
+    logger.debug("Received Vercel AI response length: %d chars", len(raw_text))
+
+    if schema is not None:
+        extracted = _extract_json_content(raw_text)
+        return extracted
+
+    return _clean_markdown_fences(raw_text)

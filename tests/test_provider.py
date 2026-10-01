@@ -176,3 +176,82 @@ def test_vercel_client_errors(monkeypatch):
     )
     with pytest.raises(VercelAITimeoutError):
         asyncio.run(vercel_client.generate("Prompt"))
+
+
+@pytest.mark.parametrize("raw_model_output,expected_name", [
+    (
+        '{"name": "clean-skill", "description": "Desc", "instructions": "1. Step", "example": {"input": "in", "output": "out"}}',
+        "clean-skill",
+    ),
+    (
+        '```json\n{"name": "fenced-skill", "description": "Desc", "instructions": "1. Step", "example": {"input": "in", "output": "out"}}\n```',
+        "fenced-skill",
+    ),
+    (
+        '   \n\t{"name": "spaced-skill", "description": "Desc", "instructions": "1. Step", "example": {"input": "in", "output": "out"}}\n  ',
+        "spaced-skill",
+    ),
+    (
+        '<think>Analyzing request...</think>\n```json\n{"name": "reasoning-skill", "description": "Desc", "instructions": "1. Step", "example": {"input": "in", "output": "out"}}\n```',
+        "reasoning-skill",
+    ),
+    (
+        'Here is the generated skill:\n```json\n{"name": "prose-skill", "description": "Desc", "instructions": "1. Step", "example": {"input": "in", "output": "out"}}\n```\nHope this helps!',
+        "prose-skill",
+    ),
+])
+def test_vercel_client_realistic_payload_extractions(monkeypatch, raw_model_output, expected_name):
+    """Test realistic hosted Qwen responses are cleanly extracted and parsed."""
+    from app.services.generator import parse_skill_draft
+
+    monkeypatch.setattr(config, "VERCEL_AI_GATEWAY_API_KEY", "secret-test-key")
+
+    def mock_handler(request):
+        return httpx.Response(200, json={
+            "choices": [{"message": {"role": "assistant", "content": raw_model_output}}]
+        })
+
+    monkeypatch.setattr(
+        vercel_client.httpx,
+        "AsyncClient",
+        lambda **kwargs: _ORIG_ASYNC_CLIENT(transport=httpx.MockTransport(mock_handler)),
+    )
+
+    extracted_text = asyncio.run(vercel_client.generate("Prompt", schema={"type": "object"}))
+    draft = parse_skill_draft(extracted_text)
+    assert draft.name == expected_name
+    assert draft.description == "Desc"
+    assert draft.instructions == "1. Step"
+    assert draft.example.input == "in"
+
+
+def test_parse_skill_draft_field_normalizations():
+    """Verify list instructions and array examples are normalized cleanly."""
+    from app.services.generator import parse_skill_draft
+
+    # List of instructions & list of examples
+    payload = json.dumps({
+        "name": "normalized-skill",
+        "description": "A normalized skill.",
+        "instructions": ["1. First step", "2. Second step"],
+        "example": [{"input": "sample in", "output": "sample out"}],
+    })
+    draft = parse_skill_draft(payload)
+    assert draft.name == "normalized-skill"
+    assert draft.instructions == "1. First step\n2. Second step"
+    assert draft.example.input == "sample in"
+
+
+def test_parse_skill_draft_malformed_and_schema_violations():
+    """Verify malformed JSON and schema violations raise clear errors."""
+    from pydantic import ValidationError
+    from app.services.generator import parse_skill_draft
+
+    # 1. Malformed JSON
+    with pytest.raises(ValidationError):
+        parse_skill_draft("Not JSON at all")
+
+    # 2. Valid JSON violating schema (missing required fields)
+    with pytest.raises(ValidationError):
+        parse_skill_draft('{"name": "missing-fields-only"}')
+

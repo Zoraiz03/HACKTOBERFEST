@@ -7,10 +7,14 @@ to produce a structured skill definition (name, description, instructions, examp
 AI prompting and JSON parsing logic are isolated here so judges can inspect them easily.
 """
 
+import json
+import logging
 from pydantic import ValidationError
 
 from app.ai import generate
 from app.models import SkillGenerateResponse
+
+logger = logging.getLogger("skillsmith.generator")
 
 # ---------------------------------------------------------------------------
 # System prompt — instructs the model to return valid JSON only
@@ -56,8 +60,36 @@ Respond with ONLY the JSON object:"""
 
 
 def parse_skill_draft(text: str) -> SkillGenerateResponse:
-    """Accept only the structured JSON schema, never extract JSON from prose."""
-    return SkillGenerateResponse.model_validate_json(text)
+    """Validate structured skill JSON against Pydantic schema with normalization."""
+    # Fast path: direct strict JSON validation
+    try:
+        return SkillGenerateResponse.model_validate_json(text)
+    except ValidationError:
+        pass
+
+    # If direct validation fails, check if text is valid JSON dict needing field normalization
+    try:
+        data = json.loads(text)
+    except Exception:
+        # Re-raise standard ValidationError from Pydantic on the raw text
+        return SkillGenerateResponse.model_validate_json(text)
+
+    if isinstance(data, dict):
+        if isinstance(data.get("instructions"), list):
+            data["instructions"] = "\n".join(str(step) for step in data["instructions"])
+        if isinstance(data.get("example"), list) and data["example"]:
+            data["example"] = data["example"][0]
+        elif "examples" in data and "example" not in data:
+            ex = data["examples"]
+            data["example"] = ex[0] if isinstance(ex, list) and ex else ex
+        if isinstance(data.get("example"), dict):
+            ex_obj = data["example"]
+            if "input" not in ex_obj and "user_input" in ex_obj:
+                ex_obj["input"] = str(ex_obj["user_input"])
+            if "output" not in ex_obj and "expected_output" in ex_obj:
+                ex_obj["output"] = str(ex_obj["expected_output"])
+
+    return SkillGenerateResponse.model_validate(data)
 
 
 async def generate_skill(workflow: str) -> SkillGenerateResponse:
@@ -71,8 +103,8 @@ async def generate_skill(workflow: str) -> SkillGenerateResponse:
         A validated SkillGenerateResponse.
 
     Raises:
-        OllamaError: If the AI model is unreachable or fails.
-        ValueError:  If the model output is not valid JSON or fails validation.
+        OllamaError / AIError: If the AI model is unreachable or fails.
+        ValueError:            If the model output is not valid JSON or fails schema validation.
     """
     prompt = _build_prompt(workflow)
 
@@ -82,4 +114,14 @@ async def generate_skill(workflow: str) -> SkillGenerateResponse:
     try:
         return parse_skill_draft(raw_response)
     except ValidationError as exc:
-        raise ValueError("Model returned invalid structured skill JSON.") from exc
+        is_json_syntax_error = any(e.get("type") == "json_invalid" for e in exc.errors())
+        if is_json_syntax_error:
+            logger.error("Model returned invalid JSON syntax. Preview: %.200s", raw_response)
+            raise ValueError(f"Model returned invalid JSON syntax: {exc}") from exc
+        else:
+            errors_summary = "; ".join(
+                f"{'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                for err in exc.errors(include_input=False, include_url=False)
+            )
+            logger.error("Model returned invalid schema: %s", errors_summary)
+            raise ValueError(f"Model returned invalid schema: {errors_summary}") from exc
